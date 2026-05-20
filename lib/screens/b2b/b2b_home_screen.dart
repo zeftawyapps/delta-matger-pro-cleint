@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:JoDija_tamplites/tampletes/screens/routed_contral_panal/utiles/side_bar_navigation_router.dart';
 import 'package:delta_mager_pro_client_app/configs/b2b_home_config.dart';
+import 'package:delta_mager_pro_client_app/consts/constants/views/assets.dart';
 import 'package:delta_mager_pro_client_app/logic/mixins/system_manager.dart';
-import 'package:delta_mager_pro_client_app/logic/model/organization_config_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:matger_pro_core_logic/core/auth/utils/permission_constants.dart'
@@ -22,8 +22,8 @@ import 'package:delta_mager_pro_client_app/logic/bloc/auth_bloc.dart';
 import 'package:JoDija_tamplites/util/data_souce_bloc/feature_data_source_state.dart';
 import 'package:delta_mager_pro_client_app/consts/constants/values/routes.dart';
 import 'package:delta_mager_pro_client_app/logic/providers/app_changes_values.dart';
-import 'package:delta_mager_pro_client_app/configs/ui_configs.dart';
 import 'package:delta_mager_pro_client_app/consts/constants/values/strings.dart';
+import 'package:delta_mager_pro_client_app/configs/app_shell_config.dart';
 import 'b2b_products_screen.dart';
 import 'cart_screen.dart';
 import 'product_details_screen.dart';
@@ -37,8 +37,31 @@ class B2BHomeScreen extends StatefulWidget with AppShellRouterMixin {
 
 class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _offersKey = GlobalKey();
   List<ProductModel> _suggestions = [];
   bool _isSearching = false;
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _scrollToOffers() {
+    final context = _offersKey.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   String get organizationId {
     final params = (widget as dynamic).getPrams();
@@ -48,7 +71,7 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
       return orgName;
     }
     final user = context.read<AppChangesValues>().user;
-    return user?.organizationId ?? 'shop1';
+    return user?.organizationId ?? AppShellConfigs.defaultOrgName ?? 'shop1';
   }
 
   @override
@@ -60,10 +83,11 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
   }
 
   void _onOfferTap(OfferModel offer) {
-    if (offer.targetType == OfferTargetType.product && offer.targetId.isNotEmpty) {
+    if (offer.targetType == OfferTargetType.product &&
+        offer.targetId.isNotEmpty) {
       final productsState = context.read<ProductsBloc>().state;
       ProductModel? product;
-      
+
       // Use listState.when to safely extract products if in success state
       productsState.listState.when(
         init: () {},
@@ -89,26 +113,25 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
       }
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => B2BProductsScreen(
-          organizationId: organizationId,
-          offerFilter: offer,
-        ),
-      ),
-    );
+    widget.goRoute(context, '${AppRoutes.products}?offerId=${offer.id}');
   }
 
-  void _loadInitialData() {
-    context.read<CategoriesBloc>().loadCategories(shopId: organizationId);
-    context.read<OffersBloc>().loadOffers(organizationId: organizationId);
-    context.read<ProductsBloc>().loadProducts();
+  void _loadInitialData({bool forceRefresh = false}) {
+    if (forceRefresh) {
+      context.read<OrganizationConfigBloc>().organizationConfig = null;
+    }
+    context.read<OrganizationConfigBloc>().getOrganizationConfigByName(
+      organizationId,
+    );
+    context.read<CategoriesBloc>().loadPublicCategories(
+      forceRefresh: forceRefresh,
+    );
+    context.read<OffersBloc>().loadPublicOffers(forceRefresh: forceRefresh);
+    context.read<ProductsBloc>().loadPublicProducts(forceRefresh: forceRefresh);
   }
 
   Future<void> _handleRefresh() async {
-    _loadInitialData();
-    context.read<OrganizationConfigBloc>().loadConfig(organizationId);
+    _loadInitialData(forceRefresh: true);
     context.read<AuthBloc>().checkSavedUser(
       onUserFound: (_) {},
       onUserNotFound: () {},
@@ -119,6 +142,7 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -131,33 +155,38 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
     );
     if (sys.authWidget != null) return sys.authWidget!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final appBarConfig = AppBarConfigs.buildLargeScreenAppBar(context);
-    appBarConfig.actions?.insert(0, _buildCartAction(context));
     final sections = B2bHomeConfig.sections;
 
     return Scaffold(
-      appBar: appBarConfig.buildAppBar(
-        context: context,
-        isAppBar: true,
-        currentTilte: 'الرئيسية - المتجر',
-        isDesplayTitle: true,
-      ),
-      body: RefreshIndicator(
-        onRefresh: _handleRefresh,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSearchBar(isDark),
-              ...sections
-                  .map((sec) => _buildDynamicSection(sec, isDark))
-                  .toList(),
-              const SizedBox(height: 40),
-            ],
+      body: Column(
+        children: [
+          // 🏆 Sticky Premium Header & Navigation
+          _buildPremiumHeader(context, isDark),
+
+          // 📦 Main Content Area
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _handleRefresh,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSearchBar(isDark),
+                    ...sections
+                        .map((sec) => _buildDynamicSection(sec, isDark))
+                        .toList(),
+                    const SizedBox(height: 40),
+
+                    // 👣 Detailed Premium Footer
+                    _buildPremiumFooter(context, isDark),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -196,7 +225,10 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
   ) {
     switch (type) {
       case B2bHomeConfig.typeOffers:
-        return _buildOffersSection(isDark, mode: mode);
+        return Container(
+          key: _offersKey,
+          child: _buildOffersSection(isDark, mode: mode),
+        );
       case B2bHomeConfig.typeCategories:
         return _buildCategoriesSection(isDark, mode: mode);
       // 🃏 section مستقل بـ grid و card خاصة به
@@ -533,15 +565,8 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                   return MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => B2BProductsScreen(
-                            organizationId: organizationId,
-                            categoryFilter: category,
-                          ),
-                        ),
-                      ),
+                      onTap: () =>
+                          widget.goRoute(context, '/products/${category.id}'),
                       child: Container(
                         width: 100,
                         margin: const EdgeInsets.only(right: 16),
@@ -577,20 +602,29 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                                       // Background Color / Placeholder
                                       Positioned.fill(
                                         child: Container(
-                                          color: (isDark ? DarkColors.primary : LightColors.primary).withOpacity(0.05),
+                                          color:
+                                              (isDark
+                                                      ? DarkColors.primary
+                                                      : LightColors.primary)
+                                                  .withOpacity(0.05),
                                         ),
                                       ),
                                       // Image
                                       Positioned.fill(
-                                        child: category.imageUrl != null &&
+                                        child:
+                                            category.imageUrl != null &&
                                                 category.imageUrl!.isNotEmpty
                                             ? Image.network(
                                                 category.imageUrl!,
                                                 fit: BoxFit.cover,
                                                 errorBuilder: (_, __, ___) =>
-                                                    _buildCategoryIconPlaceholder(isDark),
+                                                    _buildCategoryIconPlaceholder(
+                                                      isDark,
+                                                    ),
                                               )
-                                            : _buildCategoryIconPlaceholder(isDark),
+                                            : _buildCategoryIconPlaceholder(
+                                                isDark,
+                                              ),
                                       ),
                                     ],
                                   ),
@@ -629,7 +663,9 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
     return Center(
       child: Icon(
         Icons.category_outlined,
-        color: (isDark ? DarkColors.primary : LightColors.primary).withOpacity(0.5),
+        color: (isDark ? DarkColors.primary : LightColors.primary).withOpacity(
+          0.5,
+        ),
         size: 30,
       ),
     );
@@ -695,10 +731,13 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                       final query = value.toLowerCase();
                       setState(() {
                         _isSearching = true;
-                        _suggestions = allProducts.where((p) {
-                          return p.name.ar.toLowerCase().contains(query) ||
-                              p.name.en.toLowerCase().contains(query);
-                        }).take(5).toList();
+                        _suggestions = allProducts
+                            .where((p) {
+                              return p.name.ar.toLowerCase().contains(query) ||
+                                  p.name.en.toLowerCase().contains(query);
+                            })
+                            .take(5)
+                            .toList();
                       });
                     } else {
                       setState(() {
@@ -713,13 +752,9 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                         _isSearching = false;
                         _suggestions = [];
                       });
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => B2BProductsScreen(
-                            organizationId: organizationId,
-                            searchQuery: value,
-                          ),
-                        ),
+                      widget.goRoute(
+                        context,
+                        '${AppRoutes.products}?searchQuery=$value',
                       );
                     }
                   },
@@ -743,28 +778,30 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: _suggestions.length,
-                    separatorBuilder: (context, index) => Divider(
-                      height: 1,
-                      color: Colors.grey.withOpacity(0.1),
-                    ),
+                    separatorBuilder: (context, index) =>
+                        Divider(height: 1, color: Colors.grey.withOpacity(0.1)),
                     itemBuilder: (context, index) {
                       final product = _suggestions[index];
                       return ListTile(
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(4),
-                          child: product.images.isNotEmpty 
-                            ? Image.network(
-                                product.mainImage,
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
-                              )
-                            : Container(
-                                width: 40,
-                                height: 40,
-                                color: Colors.grey[200],
-                                child: const Icon(Icons.image, size: 20, color: Colors.grey),
-                              ),
+                          child: product.images.isNotEmpty
+                              ? Image.network(
+                                  product.mainImage,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                )
+                              : Container(
+                                  width: 40,
+                                  height: 40,
+                                  color: Colors.grey[200],
+                                  child: const Icon(
+                                    Icons.image,
+                                    size: 20,
+                                    color: Colors.grey,
+                                  ),
+                                ),
                         ),
                         title: Text(
                           product.name.ar,
@@ -774,7 +811,9 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                           '${product.price} ج.م',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isDark ? DarkColors.primary : LightColors.primary,
+                            color: isDark
+                                ? DarkColors.primary
+                                : LightColors.primary,
                           ),
                         ),
                         onTap: () {
@@ -786,7 +825,8 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => ProductDetailsScreen(product: product),
+                              builder: (_) =>
+                                  ProductDetailsScreen(product: product),
                             ),
                           );
                         },
@@ -844,6 +884,503 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
     bool isDark,
   ) {
     return B2BProductCard(product: product, isDark: isDark);
+  }
+
+  Widget _buildPremiumHeader(BuildContext context, bool isDark) {
+    final user = context.watch<AppChangesValues>().user;
+    final configBloc = context.watch<OrganizationConfigBloc>();
+    final orgConfig = configBloc.state.itemState.maybeWhen(
+      success: (data) => data,
+      orElse: () => null,
+    );
+    final title = orgConfig?.layout?.appTitle ?? AppStrings.appName;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? DarkColors.surface.withOpacity(0.9)
+            : Colors.white.withOpacity(0.9),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border(
+          bottom: BorderSide(
+            color: (isDark ? Colors.white : Colors.black).withOpacity(0.06),
+          ),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        top: true,
+        child: Row(
+          children: [
+            // Logo & Title
+            GestureDetector(
+              onTap: () {
+                if (_scrollController.hasClients) {
+                  _scrollController.animateTo(
+                    0,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                }
+              },
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.asset(
+                        AppAsset.logo,
+                        width: 38,
+                        height: 38,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.storefront, size: 38),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+
+            // Navigation Links
+            _buildNavLink(
+              label: 'الرئيسية',
+              onTap: () {
+                if (_scrollController.hasClients) {
+                  _scrollController.animateTo(
+                    0,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                }
+              },
+              isDark: isDark,
+            ),
+            const SizedBox(width: 20),
+            _buildNavLink(
+              label: 'كل المنتجات',
+              onTap: () => widget.goRoute(context, AppRoutes.products),
+              isDark: isDark,
+            ),
+            const SizedBox(width: 20),
+            _buildNavLink(
+              label: 'العروض الحصرية',
+              onTap: _scrollToOffers,
+              isDark: isDark,
+            ),
+            const SizedBox(width: 20),
+            _buildNavLink(
+              label: 'اتصل بنا',
+              onTap: _scrollToBottom,
+              isDark: isDark,
+            ),
+            const Spacer(),
+
+            // Actions: Cart, Search, User profile
+            _buildCartAction(context),
+            const SizedBox(width: 12),
+
+            // User Profile or Login button
+            if (user != null)
+              PopupMenuButton<String>(
+                icon: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: isDark
+                      ? DarkColors.primary.withOpacity(0.15)
+                      : LightColors.primary.withOpacity(0.15),
+                  child: Text(
+                    user.name.isNotEmpty
+                        ? user.name.substring(0, 1).toUpperCase()
+                        : 'U',
+                    style: TextStyle(
+                      color: isDark ? DarkColors.primary : LightColors.primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                onSelected: (value) async {
+                  if (value == 'logout') {
+                    context.read<AuthBloc>().signOut();
+                    setState(() {});
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  PopupMenuItem<String>(
+                    value: 'profile',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline, size: 20),
+                        const SizedBox(width: 10),
+                        Text(user.name),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem<String>(
+                    value: 'logout',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.logout_outlined,
+                          size: 20,
+                          color: Colors.red,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'تسجيل الخروج',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: () {
+                  widget.goRoute(context, AppRoutes.logIn);
+                },
+                icon: const Icon(Icons.login_outlined, size: 14),
+                label: const Text('دخول'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark
+                      ? DarkColors.primary
+                      : LightColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavLink({
+    required String label,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumFooter(BuildContext context, bool isDark) {
+    final currentYear = DateTime.now().year;
+    final configBloc = context.watch<OrganizationConfigBloc>();
+    final orgConfig = configBloc.state.itemState.maybeWhen(
+      success: (data) => data,
+      orElse: () => null,
+    );
+    final title = orgConfig?.layout?.appTitle ?? AppStrings.appName;
+
+    final primaryColor = isDark ? DarkColors.primary : LightColors.primary;
+    final footerBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+    final footerText = isDark ? Colors.grey[400]! : Colors.grey[600]!;
+    final headingColor = isDark ? Colors.white : Colors.black87;
+
+    return Container(
+      color: footerBg,
+      padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 32,
+            runSpacing: 32,
+            alignment: WrapAlignment.spaceBetween,
+            children: [
+              // Column 1: Store Bio
+              SizedBox(
+                width: 260,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            AppAsset.logo,
+                            width: 32,
+                            height: 32,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.storefront),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: headingColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'أهلاً بك في متجرنا الرقمي المميز. نسعى لتقديم أفضل المنتجات وأعلى جودة من الخدمات لعملائنا في كل مكان.',
+                      style: TextStyle(
+                        color: footerText,
+                        height: 1.5,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        _buildSocialIcon(Icons.facebook_outlined, primaryColor),
+                        const SizedBox(width: 10),
+                        _buildSocialIcon(
+                          Icons.alternate_email_outlined,
+                          primaryColor,
+                        ),
+                        const SizedBox(width: 10),
+                        _buildSocialIcon(Icons.wechat_outlined, primaryColor),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Column 2: Quick Links
+              SizedBox(
+                width: 160,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'روابط سريعة',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: headingColor,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildFooterLink('الرئيسية', () {
+                      if (_scrollController.hasClients) {
+                        _scrollController.animateTo(
+                          0,
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    }, footerText),
+                    _buildFooterLink('منتجاتنا', () {
+                      widget.goRoute(context, AppRoutes.products);
+                    }, footerText),
+                    _buildFooterLink(
+                      'عروضنا الحصرية',
+                      _scrollToOffers,
+                      footerText,
+                    ),
+                    _buildFooterLink('شروط الاستخدام والخصوصية', () {
+                      // Navigate to privacy policy page
+                    }, footerText),
+                  ],
+                ),
+              ),
+
+              // Column 3: Contact Info
+              SizedBox(
+                width: 220,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'اتصل بنا',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: headingColor,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildFooterContactItem(
+                      Icons.mail_outline,
+                      'support@delta.com',
+                      footerText,
+                    ),
+                    _buildFooterContactItem(
+                      Icons.phone_android_outlined,
+                      '+20 100 200 300',
+                      footerText,
+                    ),
+                    _buildFooterContactItem(
+                      Icons.location_on_outlined,
+                      'القاهرة، جمهورية مصر العربية',
+                      footerText,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Column 4: Payment Methods
+              SizedBox(
+                width: 200,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'طرق الدفع المدعومة',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: headingColor,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'نوفر لك أفضل وأسرع طرق الدفع لتسهيل عمليات الشراء الآمنة.',
+                      style: TextStyle(
+                        color: footerText,
+                        height: 1.4,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _buildPaymentBadge('فيزا / Visa', primaryColor),
+                        const SizedBox(width: 8),
+                        _buildPaymentBadge('ماستر كارد', primaryColor),
+                        const SizedBox(width: 8),
+                        _buildPaymentBadge('كاش', primaryColor),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Divider(
+            color: (isDark ? Colors.white : Colors.black).withOpacity(0.06),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '© $currentYear جميع الحقوق محفوظة لـ $title.',
+                style: TextStyle(color: footerText, fontSize: 11),
+              ),
+              Text(
+                'صنع بكل حب بواسطة zeftawyapps',
+                style: TextStyle(color: footerText, fontSize: 11),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSocialIcon(IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 16, color: color),
+    );
+  }
+
+  Widget _buildFooterLink(String text, VoidCallback onTap, Color textColor) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooterContactItem(IconData icon, String text, Color textColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: textColor),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(text, style: TextStyle(color: textColor, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.15)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 }
 

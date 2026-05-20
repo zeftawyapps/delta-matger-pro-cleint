@@ -14,15 +14,16 @@ void main() async {
   final configService = JsonConfigService();
   await configService.init();
 
-  // ⚙️ إعدادات النظام - يتم ضبطها ديناميكياً بناءً على ملف config.json للعميل
-  AppShellConfigs.isAdminMode = true; // true لوضع المسؤول، false لوضع المنظمة
+  // 🏢 تفعيل وضع العميل وتطبيق الطلبات المخصص (Client App Mode)
+  AppShellConfigs.isAdminMode = false; 
+  AppShellConfigs.isClientAppMode = true; 
   AppShellConfigs.titleApp = configService.appTitle;
   AppShellConfigs.defaultOrgName = configService.defaultOrgName;
   AppShellLocalConfigs.appVersion = configService.appVersion;
   AppShellLocalConfigs.appBuildIndex = configService.appBuildIndex;
 
-  // 🌍 تحديد بيئة التشغيل للاتصال بالسيرفر (AppEnvType.prod أو AppEnvType.dev أو AppEnvType.local)
-  AppBackendEnv().initConfigration(AppEnvType.local);
+  // 🌍 تحديد بيئة التشغيل للاتصال بالسيرفر
+  AppBackendEnv().initConfigration(AppEnvType.prod);
 
   runApp(const AppLouncher());
 }

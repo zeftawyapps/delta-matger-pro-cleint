@@ -26,73 +26,73 @@ class AppRoutes {
 
   static const String splash = '/splash';
   static String loginWithOrgName(String orgName) {
-    return '/$orgName/login';
+    return '/login';
   }
 
   static String welcomWithOrgName(String orgName) {
-    return '/$orgName/welcom';
+    return '/welcom';
   }
 
   static String catigoryWithOrgName(String orgName) {
-    return '/$orgName/category';
+    return '/category';
   }
 
   static String productsWithOrgName(String orgName) {
-    return '/$orgName/products';
+    return '/products';
   }
 
   static String offersWithOrgName(String orgName) {
-    return '/$orgName/offers';
+    return '/offers';
   }
 
   static String ordersWithOrgName(String orgName) {
-    return '/$orgName/orders';
+    return '/orders';
   }
 
   static String aboutUsPrivacyWithOrgName(String orgName) {
-    return '/$orgName/about-us-privacy';
+    return '/about-us-privacy';
   }
 
   static String blogsWithOrgName(String orgName) {
-    return '/$orgName/blogs';
+    return '/blogs';
   }
 
   static String usersWithOrgName(String orgName) {
-    return '/$orgName/users';
+    return '/users';
   }
 
   static String standaloneWithOrgName(String orgName) {
-    return '/$orgName/standalone';
+    return '/standalone';
   }
 
   static String testMasterGridWithOrgName(String orgName) {
-    return '/$orgName/test-master-grid';
+    return '/test-master-grid';
   }
 
   static String policiesWithOrgName(String orgName) {
-    return '/$orgName/policies';
+    return '/policies';
   }
 
-  static String get logIn => "/:orgName/login";
-  static String get welcome => "/:orgName/welcom";
+  static String get logIn => "/login";
+  static String get welcome => "/welcom";
   static const String loginAdmin = '/delta/matgerpro/loginAdmin';
   static const String adminOperations = '/delta/matgerpro/adminOperations';
   static const String customAnalyses = '/analyses/custem/:org/new';
   static const String customAnalyses2 = '/analyses/custem2/:id/new';
-  static String get analyses => "/:orgName/analyses";
-  static String get settings => "/:orgName/settings";
-  static String get systemSettings => "/:orgName/system-settings";
-  static String get systemManagment => "/:orgName/system-managment";
-  static String get cpCategory => "/:orgName/category";
-  static String get products => "/:orgName/products";
-  static String get offers => "/:orgName/offers";
-  static String get cpOrders => "/:orgName/orders";
-  static String get aboutUsPrivacy => "/:orgName/about-us-privacy";
-  static String get cpBlogs => "/:orgName/blogs";
-  static String get cpUsers => "/:orgName/users";
-  static String get standalone => "/:orgName/standalone";
-  static String get testMasterGrid => "/:orgName/test-master-grid";
-  static String get policies => "/:orgName/policies";
-  static String get b2bHome => "/:orgName/b2b-home";
-  static String get orderPaths => "/:orgName/order-paths";
+  static String get analyses => "/analyses";
+  static String get settings => "/settings";
+  static String get systemSettings => "/system-settings";
+  static String get systemManagment => "/system-managment";
+  static String get cpCategory => "/category";
+  static String get products => "/products/:catid";
+  static String get offers => "/offers";
+  static String get cpOrders => "/orders";
+  static String get aboutUsPrivacy => "/about-us-privacy";
+  static String get cpBlogs => "/blogs";
+  static String get cpUsers => "/users";
+  static String get standalone => "/standalone";
+  static String get testMasterGrid => "/test-master-grid";
+  static String get policies => "/policies";
+  static String get b2bHome => "/b2b-home";
+  static String get orderPaths => "/order-paths";
 }

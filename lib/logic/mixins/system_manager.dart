@@ -1,3 +1,4 @@
+import 'package:delta_mager_pro_client_app/configs/app_shell_config.dart';
 import 'package:flutter/material.dart';
 import 'package:JoDija_tamplites/tampletes/screens/routed_contral_panal/utiles/side_bar_navigation_router.dart';
 import 'package:JoDija_tamplites/tampletes/screens/routed_contral_panal/providers/sidebar_provider.dart';
@@ -93,7 +94,9 @@ mixin SystemManager {
     Widget? authWidget;
     final router = context.widget as AppShellRouterMixin;
     
-    if (user == null && orgConfig == null) {
+    if (AppShellConfigs.isClientAppMode) {
+      authWidget = null;
+    } else if (user == null && orgConfig == null) {
       authWidget = AppChangesValues.checkAuth(context, router) ??
           const Scaffold(body: Center(child: CircularProgressIndicator()));
     } else {

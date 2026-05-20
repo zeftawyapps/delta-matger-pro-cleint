@@ -41,7 +41,17 @@ class CategoriesBloc extends Cubit<FeaturDataSourceState<CategoryModel>> {
     }
   }
 
-  Future<void> loadCategories({required String shopId}) async {
+  Future<void> loadCategories({required String shopId, bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      bool isAlreadyLoadingOrLoaded = false;
+      state.listState.maybeWhen(
+        loading: () => isAlreadyLoadingOrLoaded = true,
+        success: (data) => isAlreadyLoadingOrLoaded = data != null && data.isNotEmpty,
+        orElse: () {},
+      );
+      if (isAlreadyLoadingOrLoaded) return;
+    }
+
     emit(state.copyWith(listState: const DataSourceBaseState.loading()));
     final result = await repo.getCategoriesByOrganization(shopId);
     if (result.status == StatusModel.success) {
@@ -54,7 +64,36 @@ class CategoriesBloc extends Cubit<FeaturDataSourceState<CategoryModel>> {
         state.copyWith(
           listState: DataSourceBaseState.failure(
             ErrorStateModel(message: result.message ?? "Error"),
-            () => loadCategories(shopId: shopId),
+            () => loadCategories(shopId: shopId, forceRefresh: forceRefresh),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> loadPublicCategories({String? name, bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      bool isAlreadyLoadingOrLoaded = false;
+      state.listState.maybeWhen(
+        loading: () => isAlreadyLoadingOrLoaded = true,
+        success: (data) => isAlreadyLoadingOrLoaded = data != null && data.isNotEmpty,
+        orElse: () {},
+      );
+      if (isAlreadyLoadingOrLoaded && name == null) return;
+    }
+
+    emit(state.copyWith(listState: const DataSourceBaseState.loading()));
+    final result = await repo.getPublicCategoriesCatalog(name: name);
+    if (result.status == StatusModel.success) {
+      final categories =
+          result.data?.map((e) => CategoryModel.fromData(e)).toList() ?? [];
+      emit(state.copyWith(listState: DataSourceBaseState.success(categories)));
+    } else {
+      emit(
+        state.copyWith(
+          listState: DataSourceBaseState.failure(
+            ErrorStateModel(message: result.message ?? "Error"),
+            () => loadPublicCategories(name: name, forceRefresh: forceRefresh),
           ),
         ),
       );

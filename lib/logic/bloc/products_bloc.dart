@@ -17,7 +17,17 @@ class ProductsBloc extends Cubit<FeaturDataSourceState<ProductModel>> {
   ProductsBloc({required this.repo})
     : super(FeaturDataSourceState<ProductModel>.defaultState());
 
-  Future<void> loadProducts({int page = 1, int limit = 100}) async {
+  Future<void> loadProducts({int page = 1, int limit = 100, bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      bool isAlreadyLoadingOrLoaded = false;
+      state.listState.maybeWhen(
+        loading: () => isAlreadyLoadingOrLoaded = true,
+        success: (data) => isAlreadyLoadingOrLoaded = data != null && data.isNotEmpty,
+        orElse: () {},
+      );
+      if (isAlreadyLoadingOrLoaded) return;
+    }
+
     emit(state.copyWith(listState: const DataSourceBaseState.loading()));
     final result = await repo.getProducts(page: page, limit: limit);
     if (result.status == StatusModel.success) {
@@ -29,7 +39,36 @@ class ProductsBloc extends Cubit<FeaturDataSourceState<ProductModel>> {
         state.copyWith(
           listState: DataSourceBaseState.failure(
             ErrorStateModel(message: result.message ?? "Error"),
-            () => loadProducts(page: page, limit: limit),
+            () => loadProducts(page: page, limit: limit, forceRefresh: forceRefresh),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> loadPublicProducts({String? categoryId, String? name, bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      bool isAlreadyLoadingOrLoaded = false;
+      state.listState.maybeWhen(
+        loading: () => isAlreadyLoadingOrLoaded = true,
+        success: (data) => isAlreadyLoadingOrLoaded = data != null && data.isNotEmpty,
+        orElse: () {},
+      );
+      if (isAlreadyLoadingOrLoaded && categoryId == null && name == null) return;
+    }
+
+    emit(state.copyWith(listState: const DataSourceBaseState.loading()));
+    final result = await repo.getPublicCatalog(categoryId: categoryId, name: name);
+    if (result.status == StatusModel.success) {
+      final products =
+          result.data?.map((e) => ProductModel.fromData(e)).toList() ?? [];
+      emit(state.copyWith(listState: DataSourceBaseState.success(products)));
+    } else {
+      emit(
+        state.copyWith(
+          listState: DataSourceBaseState.failure(
+            ErrorStateModel(message: result.message ?? "Error"),
+            () => loadPublicProducts(categoryId: categoryId, name: name, forceRefresh: forceRefresh),
           ),
         ),
       );

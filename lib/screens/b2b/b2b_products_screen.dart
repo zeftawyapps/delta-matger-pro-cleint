@@ -4,24 +4,27 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:delta_mager_pro_client_app/consts/constants/theme/app_colors.dart';
 import 'package:delta_mager_pro_client_app/logic/bloc/products_bloc.dart';
+import 'package:delta_mager_pro_client_app/logic/bloc/categories_bloc.dart';
+import 'package:delta_mager_pro_client_app/logic/bloc/offers_bloc.dart';
 import 'package:delta_mager_pro_client_app/logic/model/category.dart';
 import 'package:delta_mager_pro_client_app/logic/model/offer.dart';
 import 'package:delta_mager_pro_client_app/logic/model/product_model.dart';
 import 'package:delta_mager_pro_client_app/logic/providers/cart_provider.dart';
 import 'package:delta_mager_pro_client_app/screens/b2b/widgets/b2b_product_card.dart';
 import 'package:JoDija_tamplites/util/data_souce_bloc/feature_data_source_state.dart';
+import 'package:JoDija_tamplites/tampletes/screens/routed_contral_panal/utiles/side_bar_navigation_router.dart';
+import 'package:delta_mager_pro_client_app/consts/constants/values/routes.dart';
+import 'package:delta_mager_pro_client_app/configs/app_shell_config.dart';
 
-class B2BProductsScreen extends StatefulWidget {
-  final String organizationId;
+class B2BProductsScreen extends StatefulWidget with AppShellRouterMixin {
+  final String? organizationId;
   final CategoryModel? categoryFilter;
-  final OfferModel? offerFilter;
   final String? searchQuery;
 
-  const B2BProductsScreen({
+  B2BProductsScreen({
     super.key,
-    required this.organizationId,
+    this.organizationId,
     this.categoryFilter,
-    this.offerFilter,
     this.searchQuery,
   });
 
@@ -30,27 +33,62 @@ class B2BProductsScreen extends StatefulWidget {
 }
 
 class _B2BProductsScreenState extends State<B2BProductsScreen> {
+  String get effectiveOrganizationId {
+    if (widget.organizationId != null && widget.organizationId!.isNotEmpty) {
+      return widget.organizationId!;
+    }
+    return AppRoutes.activeOrgName;
+  }
+
+  CategoryModel? get effectiveCategoryFilter {
+    if (widget.categoryFilter != null) return widget.categoryFilter;
+    final queryMap = widget.getPrams();
+    final categoryId = queryMap?['categoryId'];
+    if (categoryId != null && categoryId != "") {
+      CategoryModel? category;
+      context.read<CategoriesBloc>().state.listState.maybeWhen(
+        success: (categories) {
+          if (categories != null) {
+            try {
+              category = categories.firstWhere((c) => c.id == categoryId);
+            } catch (_) {}
+          }
+        },
+        orElse: () {},
+      );
+      return category;
+    }
+    return null;
+  }
+
+  String? get effectiveSearchQuery {
+    if (widget.searchQuery != null) return widget.searchQuery;
+    final queryMap = widget.getPrams();
+    return queryMap?['searchQuery'] ?? queryMap?['categoryId']; // Fallback in case of parameters
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.offerFilter != null) {
-        // Here you might need a specific call if the backend supports getting products by offer
-        // For now, load all products, or load discounted products
-        context.read<ProductsBloc>().loadDiscountedProducts();
-      } else {
-        context.read<ProductsBloc>().loadProducts();
-      }
+      final category = effectiveCategoryFilter;
+      final query = effectiveSearchQuery;
+
+      context.read<ProductsBloc>().loadPublicProducts(
+        categoryId: category?.id,
+        name: query,
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final title =
-        widget.categoryFilter?.nameAr ??
-        widget.offerFilter?.name.ar ??
-        'المنتجات';
+
+    final category = effectiveCategoryFilter;
+    final query = effectiveSearchQuery;
+
+    final title = category?.nameAr ?? 'المنتجات';
 
     return Scaffold(
       body: SafeArea(
@@ -60,10 +98,13 @@ class _B2BProductsScreenState extends State<B2BProductsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
               decoration: BoxDecoration(
-                color: (isDark ? DarkColors.primary : LightColors.primary).withOpacity(0.05),
+                color: (isDark ? DarkColors.primary : LightColors.primary)
+                    .withOpacity(0.05),
                 border: Border(
                   bottom: BorderSide(
-                    color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                    color: (isDark ? Colors.white : Colors.black).withOpacity(
+                      0.05,
+                    ),
                   ),
                 ),
               ),
@@ -71,12 +112,12 @@ class _B2BProductsScreenState extends State<B2BProductsScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => widget.goPop(context),
                   ),
                   const SizedBox(width: 4),
-                  if (widget.categoryFilter != null) ...[
+                  if (category != null) ...[
                     Hero(
-                      tag: 'category_${widget.categoryFilter!.id}',
+                      tag: 'category_${category.id}',
                       child: Container(
                         height: 50,
                         width: 50,
@@ -91,16 +132,22 @@ class _B2BProductsScreenState extends State<B2BProductsScreen> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: widget.categoryFilter!.imageUrl != null &&
-                                  widget.categoryFilter!.imageUrl!.isNotEmpty
+                          child:
+                              category.imageUrl != null &&
+                                  category.imageUrl!.isNotEmpty
                               ? Image.network(
-                                  widget.categoryFilter!.imageUrl!,
+                                  category.imageUrl!,
                                   fit: BoxFit.cover,
                                 )
                               : Container(
-                                  color: isDark ? DarkColors.surface : Colors.white,
-                                  child: Icon(Icons.category_outlined, 
-                                    color: isDark ? DarkColors.primary : LightColors.primary,
+                                  color: isDark
+                                      ? DarkColors.surface
+                                      : Colors.white,
+                                  child: Icon(
+                                    Icons.category_outlined,
+                                    color: isDark
+                                        ? DarkColors.primary
+                                        : LightColors.primary,
                                     size: 20,
                                   ),
                                 ),
@@ -120,9 +167,10 @@ class _B2BProductsScreenState extends State<B2BProductsScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (widget.categoryFilter != null && widget.categoryFilter!.descriptionAr.isNotEmpty)
+                        if (category != null &&
+                            category.descriptionAr.isNotEmpty)
                           Text(
-                            widget.categoryFilter!.descriptionAr,
+                            category.descriptionAr,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -133,67 +181,78 @@ class _B2BProductsScreenState extends State<B2BProductsScreen> {
                       ],
                     ),
                   ),
-                  B2BCartBadge(organizationId: widget.organizationId),
+                  B2BCartBadge(organizationId: effectiveOrganizationId),
                 ],
               ),
             ),
             Expanded(
-              child: BlocBuilder<ProductsBloc, FeaturDataSourceState<ProductModel>>(
-                builder: (context, state) {
-                  return state.listState.when(
-                    init: () => const Center(child: CircularProgressIndicator()),
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    success: (products) {
-                      var filteredProducts = products ?? [];
+              child:
+                  BlocBuilder<
+                    ProductsBloc,
+                    FeaturDataSourceState<ProductModel>
+                  >(
+                    builder: (context, state) {
+                      return state.listState.when(
+                        init: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        success: (products) {
+                          var filteredProducts = products ?? [];
 
-                      if (widget.categoryFilter != null) {
-                        filteredProducts = filteredProducts
-                            .where((p) => p.categoryId == widget.categoryFilter!.id)
-                            .toList();
-                      }
+                          if (category != null) {
+                            filteredProducts = filteredProducts
+                                .where((p) => p.categoryId == category.id)
+                                .toList();
+                          }
 
-                      if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
-                        final query = widget.searchQuery!.toLowerCase();
-                        filteredProducts = filteredProducts.where((p) {
-                          return p.name.ar.toLowerCase().contains(query) ||
-                              p.name.en.toLowerCase().contains(query);
-                        }).toList();
-                      }
+                          if (query != null && query.isNotEmpty) {
+                            final q = query.toLowerCase();
+                            filteredProducts = filteredProducts.where((p) {
+                              return p.name.ar.toLowerCase().contains(q) ||
+                                  p.name.en.toLowerCase().contains(q);
+                            }).toList();
+                          }
 
-                      if (filteredProducts.isEmpty) {
-                        return const Center(child: Text('لا توجد منتجات'));
-                      }
+                          if (filteredProducts.isEmpty) {
+                            return const Center(child: Text('لا توجد منتجات'));
+                          }
 
-                      return GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          childAspectRatio: 0.75,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                        itemCount: filteredProducts.length,
-                        itemBuilder: (context, index) {
-                          final product = filteredProducts[index];
-                          return _buildProductCard(context, product, isDark);
+                          return GridView.builder(
+                            padding: const EdgeInsets.all(16),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 4,
+                                  childAspectRatio: 0.75,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                ),
+                            itemCount: filteredProducts.length,
+                            itemBuilder: (context, index) {
+                              final product = filteredProducts[index];
+                              return _buildProductCard(
+                                context,
+                                product,
+                                isDark,
+                              );
+                            },
+                          );
                         },
+                        failure: (error, retry) => Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('حدث خطأ في تحميل المنتجات'),
+                              TextButton(
+                                onPressed: retry,
+                                child: const Text('إعادة المحاولة'),
+                              ),
+                            ],
+                          ),
+                        ),
                       );
                     },
-                    failure: (error, retry) => Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('حدث خطأ في تحميل المنتجات'),
-                          TextButton(
-                            onPressed: retry,
-                            child: const Text('إعادة المحاولة'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+                  ),
             ),
           ],
         ),

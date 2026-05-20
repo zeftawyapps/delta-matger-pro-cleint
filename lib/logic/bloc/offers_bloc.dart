@@ -13,7 +13,17 @@ class OffersBloc extends Cubit<FeaturDataSourceState<OfferModel>> {
   OffersBloc({required this.repo})
       : super(FeaturDataSourceState<OfferModel>.defaultState());
 
-  Future<void> loadOffers({required String organizationId}) async {
+  Future<void> loadOffers({required String organizationId, bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      bool isAlreadyLoadingOrLoaded = false;
+      state.listState.maybeWhen(
+        loading: () => isAlreadyLoadingOrLoaded = true,
+        success: (data) => isAlreadyLoadingOrLoaded = data != null && data.isNotEmpty,
+        orElse: () {},
+      );
+      if (isAlreadyLoadingOrLoaded) return;
+    }
+
     emit(state.copyWith(listState: const DataSourceBaseState.loading()));
     final result = await repo.getOffersByOrganization(organizationId);
     if (result.status == StatusModel.success) {
@@ -25,7 +35,36 @@ class OffersBloc extends Cubit<FeaturDataSourceState<OfferModel>> {
         state.copyWith(
           listState: DataSourceBaseState.failure(
             ErrorStateModel(message: result.message ?? "Error"),
-            () => loadOffers(organizationId: organizationId),
+            () => loadOffers(organizationId: organizationId, forceRefresh: forceRefresh),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> loadPublicOffers({bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      bool isAlreadyLoadingOrLoaded = false;
+      state.listState.maybeWhen(
+        loading: () => isAlreadyLoadingOrLoaded = true,
+        success: (data) => isAlreadyLoadingOrLoaded = data != null && data.isNotEmpty,
+        orElse: () {},
+      );
+      if (isAlreadyLoadingOrLoaded) return;
+    }
+
+    emit(state.copyWith(listState: const DataSourceBaseState.loading()));
+    final result = await repo.getPublicOffersCatalog();
+    if (result.status == StatusModel.success) {
+      final offers =
+          result.data?.map((e) => OfferModel.fromData(e)).toList() ?? [];
+      emit(state.copyWith(listState: DataSourceBaseState.success(offers)));
+    } else {
+      emit(
+        state.copyWith(
+          listState: DataSourceBaseState.failure(
+            ErrorStateModel(message: result.message ?? "Error"),
+            () => loadPublicOffers(forceRefresh: forceRefresh),
           ),
         ),
       );
