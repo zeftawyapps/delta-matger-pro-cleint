@@ -398,4 +398,38 @@ class ProductsBloc extends Cubit<FeaturDataSourceState<ProductModel>> {
       );
     }
   }
+
+  Future<void> loadProductById(String productId) async {
+    emit(state.copyWith(itemState: const DataSourceBaseState.loading()));
+    final result = await repo.getProductById(productId);
+    if (result.status == StatusModel.success && result.data != null) {
+      final product = ProductModel.fromData(result.data!);
+      
+      // Also add to cached list in listState so it's instantly in the cache!
+      List<ProductModel> currentList = [];
+      state.listState.maybeWhen(
+        success: (data) => currentList = List<ProductModel>.from(data ?? []),
+        orElse: () {},
+      );
+      if (!currentList.any((p) => p.id == product.id)) {
+        currentList.add(product);
+      }
+      
+      emit(
+        state.copyWith(
+          itemState: DataSourceBaseState.success(product),
+          listState: DataSourceBaseState.success(currentList),
+        ),
+      );
+    } else {
+      emit(
+        state.copyWith(
+          itemState: DataSourceBaseState.failure(
+            ErrorStateModel(message: result.message ?? "Error"),
+            () => loadProductById(productId),
+          ),
+        ),
+      );
+    }
+  }
 }

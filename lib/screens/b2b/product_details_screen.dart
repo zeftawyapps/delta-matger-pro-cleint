@@ -4,15 +4,18 @@ import 'package:delta_mager_pro_client_app/configs/ui_configs.dart';
 import 'package:delta_mager_pro_client_app/consts/constants/theme/app_colors.dart';
 import 'package:delta_mager_pro_client_app/logic/model/product_model.dart';
 import 'package:delta_mager_pro_client_app/logic/providers/cart_provider.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:delta_mager_pro_client_app/logic/bloc/products_bloc.dart';
+import 'package:JoDija_tamplites/util/data_souce_bloc/feature_data_source_state.dart';
 import 'package:flutter/material.dart';
+import 'package:delta_mager_pro_client_app/consts/constants/values/routes.dart';
 
 import 'package:delta_mager_pro_client_app/screens/b2b/widgets/b2b_cart_badge.dart';
 
 // ignore: must_be_immutable
 class ProductDetailsScreen extends StatefulWidget with AppShellRouterMixin {
-  final ProductModel product;
-  ProductDetailsScreen({super.key, required this.product});
+  final ProductModel? product;
+  ProductDetailsScreen({super.key, this.product});
 
   @override
   State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
@@ -23,12 +26,46 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   PriceOption? _selectedPrice;
   final TextEditingController _qtyController = TextEditingController(text: '1');
 
+  ProductModel? get effectiveProduct {
+    if (widget.product != null) return widget.product;
+    final productId = widget.getPrams()?['productid'];
+    if (productId != null) {
+      ProductModel? foundProduct;
+      context.read<ProductsBloc>().state.listState.maybeWhen(
+            success: (products) {
+              if (products != null) {
+                try {
+                  foundProduct = products.firstWhere((p) => p.id == productId);
+                } catch (_) {}
+              }
+            },
+            orElse: () {},
+          );
+      return foundProduct;
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
-    if (widget.product.priceOptions.isNotEmpty) {
-      _selectedPrice = widget.product.priceOptions.first;
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final productsBloc = context.read<ProductsBloc>();
+      final product = effectiveProduct;
+      
+      if (product == null) {
+        final productId = widget.getPrams()?['productid'];
+        if (productId != null) {
+          productsBloc.loadProductById(productId);
+        }
+      } else {
+        if (product.priceOptions.isNotEmpty) {
+          setState(() {
+            _selectedPrice = product.priceOptions.first;
+          });
+        }
+      }
+    });
   }
 
   @override
@@ -38,21 +75,66 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<ProductsBloc, FeaturDataSourceState<ProductModel>>(
+      builder: (context, state) {
+        final product = effectiveProduct;
+        if (product == null) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('جاري التحميل...'),
+            ),
+            body: state.itemState.maybeWhen(
+              failure: (error, retry) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 60, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text(
+                        error.message ?? 'حدث خطأ أثناء تحميل المنتج',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: retry,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('إعادة المحاولة'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              orElse: () => const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          );
+        }
+        return _buildProductDetails(context, product);
+      },
+    );
+  }
+
+  Widget _buildProductDetails(BuildContext context, ProductModel product) {
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
-    final product = widget.product;
     final appBarConfig = AppBarConfigs.buildLargeScreenAppBar(context);
     
     // Add Cart Badge to actions
     appBarConfig.actions?.insert(0, B2BCartBadge(organizationId: product.organizationId));
 
+    if (_selectedPrice == null && product.priceOptions.isNotEmpty) {
+      _selectedPrice = product.priceOptions.first;
+    }
+
     return Scaffold(
-      appBar: appBarConfig.buildAppBar(
-        context: context,
-        isAppBar: true,
-        currentTilte: '${AppStrings.productDetailsTitle}: ${product.name.ar}',
-        isDesplayTitle: true,
-      ),
       body: Container(
         color: isDark ? DarkColors.background : LightColors.background,
         child: SingleChildScrollView(
@@ -60,6 +142,59 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Back Button & Header Row
+              Row(
+                children: [
+                  InkWell(
+                    onTap: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        widget.goRoute(context, AppRoutes.b2bHome);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.arrow_back_ios_new,
+                            size: 14,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'رجوع',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    product.name.ar,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  B2BCartBadge(organizationId: product.organizationId),
+                ],
+              ),
+              const SizedBox(height: 24),
+
               // Header Section with Images and Basic Info
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

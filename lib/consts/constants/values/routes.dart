@@ -85,6 +85,7 @@ class AppRoutes {
   static String get systemManagment => "/system-managment";
   static String get cpCategory => "/category";
   static String get products => "/products/:catid";
+  static String get productDetails => "/product-details/:productid";
   static String get offers => "/offers";
   static String get cpOrders => "/orders";
   static String get aboutUsPrivacy => "/about-us-privacy";

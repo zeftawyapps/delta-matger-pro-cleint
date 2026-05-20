@@ -1,6 +1,6 @@
-import 'package:delta_mager_pro_client_app/screens/b2b/product_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:delta_mager_pro_client_app/consts/constants/theme/app_colors.dart';
 import 'package:delta_mager_pro_client_app/logic/model/product_model.dart';
 import 'package:delta_mager_pro_client_app/logic/model/product_unit.dart' as model_unit;
@@ -80,12 +80,7 @@ class _B2BProductCardState extends State<B2BProductCard> {
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProductDetailsScreen(product: product),
-                  ),
-                ),
+                onTap: () => context.go('/product-details/${product.id}'),
                 child: Stack(
                   children: [
                     Container(
@@ -158,13 +153,7 @@ class _B2BProductCardState extends State<B2BProductCard> {
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              ProductDetailsScreen(product: product),
-                        ),
-                      ),
+                      onTap: () => context.go('/product-details/${product.id}'),
                       child: Text(
                         product.name.ar,
                         maxLines: 1,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:go_router/go_router.dart';
 import 'package:JoDija_tamplites/tampletes/screens/routed_contral_panal/utiles/side_bar_navigation_router.dart';
 import 'package:delta_mager_pro_client_app/configs/b2b_home_config.dart';
 import 'package:delta_mager_pro_client_app/consts/constants/views/assets.dart';
@@ -85,32 +86,8 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
   void _onOfferTap(OfferModel offer) {
     if (offer.targetType == OfferTargetType.product &&
         offer.targetId.isNotEmpty) {
-      final productsState = context.read<ProductsBloc>().state;
-      ProductModel? product;
-
-      // Use listState.when to safely extract products if in success state
-      productsState.listState.when(
-        init: () {},
-        loading: () {},
-        success: (products) {
-          if (products != null) {
-            try {
-              product = products.firstWhere((p) => p.id == offer.targetId);
-            } catch (_) {}
-          }
-        },
-        failure: (err, retry) {},
-      );
-
-      if (product != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ProductDetailsScreen(product: product!),
-          ),
-        );
-        return;
-      }
+      widget.goRoute(context, '/product-details/${offer.targetId}');
+      return;
     }
 
     widget.goRoute(context, '${AppRoutes.products}?offerId=${offer.id}');
@@ -412,11 +389,9 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () => Navigator.push(
+        onTap: () => widget.goRoute(
           context,
-          MaterialPageRoute(
-            builder: (_) => ProductDetailsScreen(product: product),
-          ),
+          '/product-details/${product.id}',
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
@@ -822,12 +797,9 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                             _suggestions = [];
                             _searchController.clear();
                           });
-                          Navigator.push(
+                          widget.goRoute(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  ProductDetailsScreen(product: product),
-                            ),
+                            '/product-details/${product.id}',
                           );
                         },
                       );
@@ -1620,12 +1592,7 @@ class _B2BZoomSliderState extends State<B2BZoomSlider> {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ProductDetailsScreen(product: product),
-          ),
-        ),
+        onTap: () => context.go('/product-details/${product.id}'),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           decoration: BoxDecoration(
