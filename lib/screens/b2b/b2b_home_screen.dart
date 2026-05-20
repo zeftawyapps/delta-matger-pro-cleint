@@ -133,6 +133,15 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
     if (sys.authWidget != null) return sys.authWidget!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sections = B2bHomeConfig.sections;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isMobile = screenWidth < 768;
+    final configBloc = context.watch<OrganizationConfigBloc>();
+    final orgConfig = configBloc.state.itemState.maybeWhen(
+      success: (data) => data,
+      orElse: () => null,
+    );
+    final title = orgConfig?.layout?.appTitle ?? AppStrings.appName;
+    final user = context.watch<AppChangesValues>().user;
 
     return Scaffold(
       body: Column(
@@ -273,13 +282,13 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
 
             if (mode == B2bHomeConfig.modeHorizontalList) {
               return SizedBox(
-                height: 240,
+                height: 330,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: products.length,
                   itemBuilder: (context, index) => Container(
-                    width: 170,
+                    width: 220,
                     margin: const EdgeInsets.only(right: 12),
                     child: _buildProductCard(context, products[index], isDark),
                   ),
@@ -866,9 +875,11 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
       orElse: () => null,
     );
     final title = orgConfig?.layout?.appTitle ?? AppStrings.appName;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isMobile = screenWidth < 768;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: 12),
       decoration: BoxDecoration(
         color: isDark
             ? DarkColors.surface.withOpacity(0.9)
@@ -891,6 +902,79 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
         top: true,
         child: Row(
           children: [
+            // Mobile Menu Hamburger Button (Dropdown Popup)
+            if (isMobile)
+              Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.menu,
+                    color: isDark ? Colors.white : Colors.black87,
+                    size: 24,
+                  ),
+                  tooltip: 'قائمة التنقل',
+                  onSelected: (value) {
+                    if (value == 'home') {
+                      if (_scrollController.hasClients) {
+                        _scrollController.animateTo(
+                          0,
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    } else if (value == 'products') {
+                      widget.goRoute(context, AppRoutes.allProducts);
+                    } else if (value == 'offers') {
+                      _scrollToOffers();
+                    } else if (value == 'contact') {
+                      _scrollToBottom();
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(
+                      value: 'home',
+                      child: Row(
+                        children: [
+                          Icon(Icons.home_outlined, size: 20),
+                          SizedBox(width: 10),
+                          Text('الرئيسية'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'products',
+                      child: Row(
+                        children: [
+                          Icon(Icons.grid_view_outlined, size: 20),
+                          SizedBox(width: 10),
+                          Text('كل المنتجات'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'offers',
+                      child: Row(
+                        children: [
+                          Icon(Icons.local_offer_outlined, size: 20),
+                          SizedBox(width: 10),
+                          Text('العروض الحصرية'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'contact',
+                      child: Row(
+                        children: [
+                          Icon(Icons.phone_outlined, size: 20),
+                          SizedBox(width: 10),
+                          Text('اتصل بنا'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             // Logo & Title
             GestureDetector(
               onTap: () {
@@ -910,18 +994,18 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                       borderRadius: BorderRadius.circular(10),
                       child: Image.asset(
                         AppAsset.logo,
-                        width: 38,
-                        height: 38,
+                        width: isMobile ? 32 : 38,
+                        height: isMobile ? 32 : 38,
                         fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.storefront, size: 38),
+                            Icon(Icons.storefront, size: isMobile ? 32 : 38),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: isMobile ? 15 : 18,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : Colors.black87,
                       ),
@@ -932,39 +1016,41 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
             ),
             const Spacer(),
 
-            // Navigation Links
-            _buildNavLink(
-              label: 'الرئيسية',
-              onTap: () {
-                if (_scrollController.hasClients) {
-                  _scrollController.animateTo(
-                    0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeInOut,
-                  );
-                }
-              },
-              isDark: isDark,
-            ),
-            const SizedBox(width: 20),
-            _buildNavLink(
-              label: 'كل المنتجات',
-              onTap: () => widget.goRoute(context, AppRoutes.products),
-              isDark: isDark,
-            ),
-            const SizedBox(width: 20),
-            _buildNavLink(
-              label: 'العروض الحصرية',
-              onTap: _scrollToOffers,
-              isDark: isDark,
-            ),
-            const SizedBox(width: 20),
-            _buildNavLink(
-              label: 'اتصل بنا',
-              onTap: _scrollToBottom,
-              isDark: isDark,
-            ),
-            const Spacer(),
+            // Navigation Links (Desktop only)
+            if (!isMobile) ...[
+              _buildNavLink(
+                label: 'الرئيسية',
+                onTap: () {
+                  if (_scrollController.hasClients) {
+                    _scrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeInOut,
+                    );
+                  }
+                },
+                isDark: isDark,
+              ),
+              const SizedBox(width: 20),
+              _buildNavLink(
+                label: 'كل المنتجات',
+                onTap: () => widget.goRoute(context, AppRoutes.allProducts),
+                isDark: isDark,
+              ),
+              const SizedBox(width: 20),
+              _buildNavLink(
+                label: 'العروض الحصرية',
+                onTap: _scrollToOffers,
+                isDark: isDark,
+              ),
+              const SizedBox(width: 20),
+              _buildNavLink(
+                label: 'اتصل بنا',
+                onTap: _scrollToBottom,
+                isDark: isDark,
+              ),
+              const Spacer(),
+            ],
 
             // Actions: Cart, Search, User profile
             _buildCartAction(context),
@@ -1181,7 +1267,7 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                       }
                     }, footerText),
                     _buildFooterLink('منتجاتنا', () {
-                      widget.goRoute(context, AppRoutes.products);
+                      widget.goRoute(context, AppRoutes.allProducts);
                     }, footerText),
                     _buildFooterLink(
                       'عروضنا الحصرية',
@@ -1229,14 +1315,14 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                 ),
               ),
 
-              // Column 4: Payment Methods
+              // Column 4: Secure Delivery & Service Policy
               SizedBox(
-                width: 200,
+                width: 220,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'طرق الدفع المدعومة',
+                      'الدفع والتوصيل الآمن',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -1245,7 +1331,7 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'نوفر لك أفضل وأسرع طرق الدفع لتسهيل عمليات الشراء الآمنة.',
+                      'ندعم الدفع النقدي عند الاستلام (كاش) لضمان أعلى مستويات الأمان والموثوقية، مع شحن سريع وموثوق لكافة المحافظات.',
                       style: TextStyle(
                         color: footerText,
                         height: 1.4,
@@ -1253,13 +1339,12 @@ class _B2BHomeScreenState extends State<B2BHomeScreen> with SystemManager {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
                       children: [
-                        _buildPaymentBadge('فيزا / Visa', primaryColor),
-                        const SizedBox(width: 8),
-                        _buildPaymentBadge('ماستر كارد', primaryColor),
-                        const SizedBox(width: 8),
-                        _buildPaymentBadge('كاش', primaryColor),
+                        _buildPaymentBadge('الدفع عند الاستلام', primaryColor),
+                        _buildPaymentBadge('شحن سريع للمحافظات', primaryColor),
                       ],
                     ),
                   ],
@@ -1656,7 +1741,6 @@ class _B2BZoomSliderState extends State<B2BZoomSlider> {
           Expanded(
             flex: 3,
             child: Container(
-              padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
                 color:
                     (widget.isDark ? DarkColors.primary : LightColors.primary)
@@ -1665,9 +1749,14 @@ class _B2BZoomSliderState extends State<B2BZoomSlider> {
                   top: Radius.circular(20),
                 ),
               ),
-              child: product.images.isNotEmpty
-                  ? Image.network(product.mainImage, fit: BoxFit.contain)
-                  : const Icon(Icons.image, size: 50),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                child: product.images.isNotEmpty
+                    ? Image.network(product.mainImage, fit: BoxFit.cover)
+                    : const Icon(Icons.image, size: 50),
+              ),
             ),
           ),
           Expanded(
@@ -1706,4 +1795,6 @@ class _B2BZoomSliderState extends State<B2BZoomSlider> {
       ),
     );
   }
+
+
 }

@@ -85,7 +85,6 @@ class _B2BProductCardState extends State<B2BProductCard> {
                   children: [
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(8.0),
                       decoration: BoxDecoration(
                         color:
                             (isDark ? DarkColors.primary : LightColors.primary)
@@ -94,24 +93,29 @@ class _B2BProductCardState extends State<B2BProductCard> {
                           top: Radius.circular(12),
                         ),
                       ),
-                      child: product.images.isNotEmpty
-                          ? Hero(
-                              tag: 'product_image_${product.id}',
-                              child: Image.network(
-                                product.mainImage,
-                                fit: BoxFit.contain,
-                                errorBuilder: (c, e, s) => const Icon(
-                                  Icons.broken_image,
-                                  size: 30,
-                                  color: Colors.grey,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
+                        child: product.images.isNotEmpty
+                            ? Hero(
+                                tag: 'product_image_${product.id}',
+                                child: Image.network(
+                                  product.mainImage,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => const Icon(
+                                    Icons.broken_image,
+                                    size: 30,
+                                    color: Colors.grey,
+                                  ),
                                 ),
+                              )
+                            : const Icon(
+                                Icons.image,
+                                size: 40,
+                                color: Colors.grey,
                               ),
-                            )
-                          : const Icon(
-                              Icons.image,
-                              size: 40,
-                              color: Colors.grey,
-                            ),
+                      ),
                     ),
                     if ((product.discount ?? 0) > 0)
                       Positioned(

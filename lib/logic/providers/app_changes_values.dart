@@ -99,6 +99,22 @@ class AppChangesValues extends ChangeNotifier {
     }
   }
 
+  String? savedTargetRoute;
+
+  void saveTargetRoute(String route) {
+    if (savedTargetRoute != route) {
+      savedTargetRoute = route;
+      notifyListeners();
+    }
+  }
+
+  void clearTargetRoute() {
+    if (savedTargetRoute != null) {
+      savedTargetRoute = null;
+      notifyListeners();
+    }
+  }
+
   void clearLastRoute() {
     laseRoute = null;
     notifyListeners();

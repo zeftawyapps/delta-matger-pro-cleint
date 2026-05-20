@@ -20,7 +20,7 @@ class AppShellConfigs {
   static bool isDarkMode = false;
   static bool isProduction = false;
 
-  static String get initRouter => AppRoutes.b2bHome;
+  static String get initRouter => AppRoutes.splash;
 
   // 🎨 ألوان الـ Sidebar
   static Color sidebarBackgroundColor = AppColors.darkBackground;

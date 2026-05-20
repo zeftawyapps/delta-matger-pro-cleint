@@ -20,4 +20,5 @@ class AppRouteIds {
   static const String policies = 'policies';
   static const String b2bHome = 'b2bhome';
   static const String orderPaths = 'orderPaths';
+  static const String allProducts = 'allProducts';
 }

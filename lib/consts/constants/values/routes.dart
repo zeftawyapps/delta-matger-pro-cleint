@@ -96,4 +96,5 @@ class AppRoutes {
   static String get policies => "/policies";
   static String get b2bHome => "/b2b-home";
   static String get orderPaths => "/order-paths";
+  static String get allProducts => "/all-products";
 }

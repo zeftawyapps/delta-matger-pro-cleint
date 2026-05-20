@@ -14,6 +14,7 @@ import 'package:delta_mager_pro_client_app/logic/model/organization_config_model
 import 'package:delta_mager_pro_client_app/logic/model/user.dart';
 import 'package:JoDija_tamplites/tampletes/screens/routed_contral_panal/models/app_bar_config.dart';
 import 'package:matger_pro_core_logic/core/auth/utils/permission_manager.dart';
+import 'package:go_router/go_router.dart';
 
 mixin SystemManager {
   SystemConfig getSystemConfig(
@@ -30,6 +31,45 @@ mixin SystemManager {
       success: (data) => data,
       orElse: () => null,
     );
+
+    // 🚩 Check if organization configuration is loaded; if not, redirect to Splash screen to load it
+    if (orgConfig == null && feature != 'splash' && feature != 'SplashScreen') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          final routerState = GoRouterState.of(context);
+          final fullPath = routerState.uri.toString();
+          if (fullPath.isNotEmpty && !fullPath.contains('splash')) {
+            context.read<AppChangesValues>().saveTargetRoute(fullPath);
+            debugPrint("Saved target route for deep link restoration: $fullPath");
+          }
+        } catch (e) {
+          if (mainPath != null && mainPath.isNotEmpty && !mainPath.contains('splash')) {
+            context.read<AppChangesValues>().saveTargetRoute(mainPath);
+            debugPrint("Saved mainPath fallback for deep link restoration: $mainPath");
+          }
+        }
+
+        final router = context.widget as AppShellRouterMixin;
+        router.goRoute(context, AppRoutes.splash, replace: true);
+      });
+
+      return SystemConfig(
+        user: user,
+        feature: feature,
+        orgConfig: null,
+        featureConfig: null,
+        canAdd: false,
+        canUpdate: false,
+        canDelete: false,
+        isDark: Theme.of(context).brightness == Brightness.dark,
+        appBarConfig: AppBarConfigs.buildLargeScreenAppBar(context),
+        authWidget: const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
 
     // الصلاحيات
     bool canAdd = (user?.can(feature, SystemJobs.add) ?? widgetCanAdd ?? true);

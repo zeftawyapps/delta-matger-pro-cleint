@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:delta_mager_pro_client_app/consts/constants/values/strings.dart';
 import 'package:JoDija_tamplites/tampletes/screens/routed_contral_panal/utiles/side_bar_navigation_router.dart';
 import 'package:delta_mager_pro_client_app/configs/ui_configs.dart';
@@ -9,6 +10,8 @@ import 'package:delta_mager_pro_client_app/logic/bloc/products_bloc.dart';
 import 'package:JoDija_tamplites/util/data_souce_bloc/feature_data_source_state.dart';
 import 'package:flutter/material.dart';
 import 'package:delta_mager_pro_client_app/consts/constants/values/routes.dart';
+import 'package:delta_mager_pro_client_app/logic/mixins/system_manager.dart';
+import 'package:delta_mager_pro_client_app/logic/bloc/organization_config_bloc.dart';
 
 import 'package:delta_mager_pro_client_app/screens/b2b/widgets/b2b_cart_badge.dart';
 
@@ -21,7 +24,7 @@ class ProductDetailsScreen extends StatefulWidget with AppShellRouterMixin {
   State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
 }
 
-class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
+class _ProductDetailsScreenState extends State<ProductDetailsScreen> with SystemManager {
   int _quantity = 1;
   PriceOption? _selectedPrice;
   final TextEditingController _qtyController = TextEditingController(text: '1');
@@ -75,6 +78,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
   @override
   Widget build(BuildContext context) {
+    // 🚩 Check if system and organization configs are loaded; if not, SystemManager will auto-redirect to /splash and restore
+    final configBloc = context.watch<OrganizationConfigBloc>();
+    final orgConfig = configBloc.state.itemState.maybeWhen(
+      success: (data) => data,
+      orElse: () => null,
+    );
+
+    if (orgConfig == null) {
+      getSystemConfig(context, feature: 'products', mainPath: AppRoutes.productDetails);
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return BlocBuilder<ProductsBloc, FeaturDataSourceState<ProductModel>>(
       builder: (context, state) {
         final product = effectiveProduct;
@@ -122,7 +141,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildProductDetails(BuildContext context, ProductModel product) {
-
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isMobile = screenWidth < 768;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
     final appBarConfig = AppBarConfigs.buildLargeScreenAppBar(context);
@@ -196,19 +216,29 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               const SizedBox(height: 24),
 
               // Header Section with Images and Basic Info
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Image Gallery Section
-                  Expanded(flex: 1, child: _buildImageGallery(product, isDark)),
-                  const SizedBox(width: 32),
-                  // Basic Info Section
-                  Expanded(
-                    flex: 2,
-                    child: _buildBasicInfo(product, isDark, theme),
-                  ),
-                ],
-              ),
+              if (isMobile)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildImageGallery(product, isDark),
+                    const SizedBox(height: 24),
+                    _buildBasicInfo(product, isDark, theme),
+                  ],
+                )
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Image Gallery Section
+                    Expanded(flex: 1, child: _buildImageGallery(product, isDark)),
+                    const SizedBox(width: 32),
+                    // Basic Info Section
+                    Expanded(
+                      flex: 2,
+                      child: _buildBasicInfo(product, isDark, theme),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 32),
 
               const SizedBox(height: 32),
@@ -227,22 +257,49 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             color: isDark ? DarkColors.surface : LightColors.surface,
-            border: Border.all(
-              color: isDark ? DarkColors.divider : LightColors.divider,
-            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                spreadRadius: 1,
+                offset: Offset.zero,
+              ),
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: product.images.isNotEmpty
-                ? Hero(
-                    tag: 'product_image_${product.id}',
-                    child: Image.network(
-                      product.mainImage,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const Center(
-                        child: Icon(Icons.image_not_supported, size: 64),
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Blurred background image
+                      Image.network(
+                        product.mainImage,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox(),
                       ),
-                    ),
+                      // Glassmorphic frosting layer
+                      BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                        child: Container(
+                          color: (isDark ? Colors.black : Colors.white).withOpacity(0.25),
+                        ),
+                      ),
+                      // Crisp centered product image
+                      Hero(
+                        tag: 'product_image_${product.id}',
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Image.network(
+                            product.mainImage,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => const Center(
+                              child: Icon(Icons.image_not_supported, size: 64),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   )
                 : const Center(child: Icon(Icons.image, size: 64)),
           ),

@@ -11,6 +11,8 @@ import 'package:delta_mager_pro_client_app/screens/b2b/widgets/b2b_product_card.
 import 'package:JoDija_tamplites/util/data_souce_bloc/feature_data_source_state.dart';
 import 'package:JoDija_tamplites/tampletes/screens/routed_contral_panal/utiles/side_bar_navigation_router.dart';
 import 'package:delta_mager_pro_client_app/consts/constants/values/routes.dart';
+import 'package:delta_mager_pro_client_app/logic/mixins/system_manager.dart';
+import 'package:delta_mager_pro_client_app/logic/bloc/organization_config_bloc.dart';
 
 class B2BProductsScreen extends StatefulWidget with AppShellRouterMixin {
   final String? organizationId;
@@ -28,7 +30,7 @@ class B2BProductsScreen extends StatefulWidget with AppShellRouterMixin {
   State<B2BProductsScreen> createState() => _B2BProductsScreenState();
 }
 
-class _B2BProductsScreenState extends State<B2BProductsScreen> {
+class _B2BProductsScreenState extends State<B2BProductsScreen> with SystemManager {
   String get effectiveOrganizationId {
     if (widget.organizationId != null && widget.organizationId!.isNotEmpty) {
       return widget.organizationId!;
@@ -99,6 +101,34 @@ class _B2BProductsScreenState extends State<B2BProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final int crossAxisCount = screenWidth < 600
+        ? 2
+        : screenWidth < 900
+            ? 3
+            : 4;
+    final double childAspectRatio = screenWidth < 600
+        ? 0.58
+        : screenWidth < 900
+            ? 0.7
+            : 0.75;
+
+    // 🚩 Check if system and organization configs are loaded; if not, SystemManager will auto-redirect to /splash and restore
+    final configBloc = context.watch<OrganizationConfigBloc>();
+    final orgConfig = configBloc.state.itemState.maybeWhen(
+      success: (data) => data,
+      orElse: () => null,
+    );
+
+    if (orgConfig == null) {
+      getSystemConfig(context, feature: 'products', mainPath: AppRoutes.products);
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return BlocBuilder<CategoriesBloc, FeaturDataSourceState<CategoryModel>>(
       builder: (context, categoriesState) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -365,9 +395,9 @@ class _B2BProductsScreenState extends State<B2BProductsScreen> {
                                               vertical: 16,
                                             ),
                                             gridDelegate:
-                                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                                  crossAxisCount: 4,
-                                                  childAspectRatio: 0.75,
+                                                SliverGridDelegateWithFixedCrossAxisCount(
+                                                  crossAxisCount: crossAxisCount,
+                                                  childAspectRatio: childAspectRatio,
                                                   crossAxisSpacing: 12,
                                                   mainAxisSpacing: 12,
                                                 ),
@@ -462,13 +492,8 @@ class _B2BProductsScreenState extends State<B2BProductsScreen> {
                                 size: 18,
                                 color: isDark ? Colors.white : Colors.black87,
                               ),
-                              padding: EdgeInsets.zero,
                               onPressed: () {
-                                if (Navigator.of(context).canPop()) {
-                                  widget.goPop(context);
-                                } else {
-                                  widget.goRoute(context, '/');
-                                }
+                                widget.goRoute(context, AppRoutes.b2bHome);
                               },
                             ),
                           ),

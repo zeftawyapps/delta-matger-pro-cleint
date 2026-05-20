@@ -48,10 +48,26 @@ class B2bHomeConfig {
         "config": {"aspectRatio": 16 / 9, "autoPlay": true}
       },
       {
+        "id": "sec_bestsellers",
+        "type": typeBestSellerProducts,
+        "displayMode": modeHorizontalList,
+        "title": "الأكثر مبيعاً",
+        "isActive": true,
+        "config": {"crossAxisCount": 4}
+      },
+      {
         "id": "sec_new",
         "type": typeNewProducts,
         "displayMode": modeGrid,
         "title": "وصل حديثاً",
+        "isActive": true,
+        "config": {"crossAxisCount": 4}
+      },
+      {
+        "id": "sec_onsale",
+        "type": typeOnSaleProducts,
+        "displayMode": modeGrid,
+        "title": "عروض خاصة وخصومات",
         "isActive": true,
         "config": {"crossAxisCount": 4}
       },
